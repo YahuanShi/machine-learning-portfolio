@@ -1,0 +1,11 @@
+torch>=2.2
+torchvision
+numpy
+matplotlib
+jupyter
+scikit-learn
+pandas
+gymnasium
+stable-baselines3
+tensorboardX
+wandb
