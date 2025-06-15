@@ -1,6 +1,6 @@
 # Machine Learning Portfolio
 
-📌 Overview  
+Overview  
 This repository contains my learning and practice projects in the field of Machine Learning, including classic model implementations, experiments with various algorithms, and related notes.
 
 
