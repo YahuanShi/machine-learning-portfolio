@@ -1,6 +1,6 @@
 # Credit Scoring System
 
-This project builds a complete credit scoring system based on the [Give Me Some Credit](https://www.kaggle.com/c/GiveMeSomeCredit) dataset. It includes data cleaning, WOE binning, IV analysis, scorecard modeling (logistic regression & XGBoost), score transformation, and a Streamlit web demo for real-world simulation.
+This project builds a complete credit scoring system based on the [Give Me Some Credit](https://www.kaggle.com/c/GiveMeSomeCredit) dataset. It includes data cleaning, WOE binning, IV analysis, scorecard modeling (logistic regression, XGBoost and LightGBM), score transformation, and a Streamlit web demo for real-world simulation.
 
 ## Structure
 
@@ -9,13 +9,10 @@ This project builds a complete credit scoring system based on the [Give Me Some 
 ├── app.py                      # Streamlit Web App
 ├── data/
 │   └── cs-training.csv         # Raw input data (Kaggle)
-├── models/
-│   └── logistic_model.pkl      # Trained model file
-├── notebooks/
-│   └── 01_woe_binning_modeling.ipynb  # Full modeling notebook
-├── outputs/                    # Score distributions, exported results
-├── src/
-│   └── scorecard_utils.py      # Utility functions (score mapping, save/load model)
+├── models/                     # Trained model file
+├── notebooks/                  Jupyter notebooks for each phase
+├── outputs/                    # Cleaned datasets, WOE, Score distributions, exported results
+├── src/                        # Python modules    
 └── requirements.txt
 ```
 
@@ -25,7 +22,7 @@ This project builds a complete credit scoring system based on the [Give Me Some 
 
 - End-to-end credit scorecard modeling pipeline
 - WOE binning + IV-based feature selection
-- Logistic regression and XGBoost model training
+- Multi-model training (Logistic / XGBoost / LightGBM)
 - Score mapping (probability → score)
 - Risk level classification
 - Streamlit demo (manual & batch scoring)
@@ -73,14 +70,6 @@ Install all requirements:
 ```bash
 pip install -r requirements.txt
 ```
----
-
-## To Improve
-
-- Add SHAP feature importance
-- Support more models (LightGBM, CatBoost)
-- Build REST API version (Flask/FastAPI)
-- Integrate with real-time scoring interface
 
 ---
 

@@ -1,88 +1,74 @@
-
+# Version: v2.0 (Streamlit App for Risk Scoring)
+# Features: Manual Input, Batch Upload, Risk Segmentation, Download Support
 import streamlit as st
 import pandas as pd
-import numpy as np
 import joblib
-import matplotlib.pyplot as plt
-import seaborn as sns
+import numpy as np
+import json
+import scorecardpy as sc
 
+# Paths
+MODEL_PATH = 'models/xgboost_model.pkl'
+BIN_PATH = 'outputs/woe_bins.json'
 
-import sys
-import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "src")))
-from scorecard_utils import prob_to_score, load_model
+# Load model and bins
+model = joblib.load(MODEL_PATH)
+with open(BIN_PATH, 'r') as f:
+    bins_dict = json.load(f)
+bins = {k: pd.DataFrame(v) for k, v in bins_dict.items()}
 
-st.set_page_config(page_title="Credit Scoring App", layout="wide")
-st.title("📊 Credit Scoring System (Logistic Model)")
+st.set_page_config(page_title="Credit Scoring App", layout="centered")
+st.title("📊 Credit Scoring with Risk Classification")
 
-# Load model
-model = load_model("models/logistic_model.pkl")
+# Input mode
+mode = st.sidebar.radio("Select Mode", ["Manual Input", "Batch Upload"])
 
-# Sidebar mode selection
-mode = st.sidebar.radio("Select Mode", ["🔍 Single Prediction", "📂 Batch Scoring"])
-base_point = st.sidebar.number_input("Base Score", value=600)
-pdo = st.sidebar.number_input("Points to Double Odds (PDO)", value=50)
-odds0 = st.sidebar.number_input("Base Odds (bad:good)", value=1/19)
+def apply_woe(df_raw):
+    return sc.woebin_ply(df_raw, bins)
 
-# Risk level categorization
-def risk_level(score):
-    if score > 720:
-        return "🟢 Low"
-    elif score > 620:
-        return "🟡 Medium"
-    else:
-        return "🔴 High"
+if mode == "Manual Input":
+    st.subheader("🧾 Enter Applicant Information")
 
-# Single Prediction Mode
-if mode == "🔍 Single Prediction":
-    st.subheader("🧮 Manual Input")
-    with st.form("input_form"):
-        age = st.number_input("Age", min_value=18, max_value=100, value=35)
-        debt_ratio = st.slider("Debt Ratio", 0.0, 2.0, 0.3)
-        revol_util = st.slider("Revolving Utilization", 0.0, 2.0, 0.6)
-        open_credit_lines = st.number_input("Open Credit Lines", 0, 30, 10)
-        past_due = st.number_input("Num Past Due >30 Days", 0, 10, 0)
-        submitted = st.form_submit_button("Score")
+    input_data = {
+        'age': st.number_input("Age", min_value=18, max_value=100, value=35),
+        'DebtRatio': st.slider("Debt Ratio", min_value=0.0, max_value=3.0, value=0.5),
+        'MonthlyIncome': st.number_input("Monthly Income", min_value=0, value=5000),
+        'NumberOfDependents': st.slider("Number of Dependents", 0, 10, 1),
+        'NumberOfOpenCreditLinesAndLoans': st.slider("Open Credit Lines", 0, 50, 8),
+        'RevolvingUtilizationOfUnsecuredLines': st.slider("Revolving Utilization", 0.0, 2.0, 0.5),
+        'NumberOfTime30-59DaysPastDueNotWorse': st.slider("30-59 Days Late", 0, 10, 1),
+        'NumberOfTime60-89DaysPastDueNotWorse': st.slider("60-89 Days Late", 0, 10, 0),
+        'NumberOfTimes90DaysLate': st.slider("90+ Days Late", 0, 10, 0)
+    }
 
-    if submitted:
-        df_input = pd.DataFrame([{
-            "age": age,
-            "DebtRatio": debt_ratio,
-            "RevolvingUtilizationOfUnsecuredLines": revol_util,
-            "NumberOfOpenCreditLinesAndLoans": open_credit_lines,
-            "NumberOfTime30-59DaysPastDueNotWorse": past_due
-        }])
-        prob = model.predict_proba(df_input)[0, 1]
-        score = prob_to_score(prob, base_point, pdo, odds0)
-        st.success(f"Predicted Probability of Default: {prob:.2%}")
-        st.info(f"Credit Score: {score:.0f}")
-        st.warning(f"Risk Level: {risk_level(score)}")
+    df_input = pd.DataFrame([input_data])
+    df_woe = apply_woe(df_input)
 
-# Batch Scoring Mode
-elif mode == "📂 Batch Scoring":
-    st.subheader("📁 Upload CSV File")
-    uploaded_file = st.file_uploader("Upload your CSV file", type="csv")
+    if st.button("Predict Score"):
+        proba = model.predict_proba(df_woe)[:, 1][0]
+        st.metric("📈 Default Probability", f"{proba:.2%}")
 
-    if uploaded_file is not None:
-        df = pd.read_csv(uploaded_file)
-        if 'SeriousDlqin2yrs' in df.columns:
-            df = df.drop(columns=['SeriousDlqin2yrs'])
+        if proba < 0.2:
+            level = "🟢 Low Risk"
+        elif proba < 0.5:
+            level = "🟡 Medium Risk"
+        elif proba < 0.8:
+            level = "🟠 High Risk"
+        else:
+            level = "🔴 Critical Risk"
 
-        # Score
-        prob = model.predict_proba(df)[:, 1]
-        df['prob'] = prob
-        df['score'] = prob_to_score(prob, base_point, pdo, odds0)
-        df['risk'] = df['score'].apply(risk_level)
+        st.success(f"Risk Level: {level}")
 
-        st.dataframe(df.head())
+else:
+    st.subheader("📁 Upload Batch Data (Raw CSV)")
+    file = st.file_uploader("Upload CSV file", type="csv")
 
-        # Plot score distribution
-        st.subheader("📈 Score Distribution")
-        fig, ax = plt.subplots()
-        sns.histplot(df['score'], kde=True, bins=20, ax=ax)
-        st.pyplot(fig)
-
-        # Download results
-        st.subheader("📤 Download Scored Results")
-        csv = df.to_csv(index=False).encode("utf-8")
-        st.download_button("Download CSV", csv, "scored_results.csv", "text/csv")
+    if file:
+        raw = pd.read_csv(file)
+        df_woe = apply_woe(raw)
+        preds = model.predict_proba(df_woe)[:, 1]
+        raw['default_proba'] = preds
+        raw['risk_level'] = pd.cut(preds, [-np.inf, 0.2, 0.5, 0.8, np.inf],
+                                   labels=['Low', 'Medium', 'High', 'Critical'])
+        st.write(raw.head())
+        st.download_button("Download Scored Data", raw.to_csv(index=False), file_name="scored.csv")
