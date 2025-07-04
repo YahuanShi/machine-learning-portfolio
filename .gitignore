@@ -2,3 +2,4 @@
 03_multi-target_remaining_useful_life_estimator/outputs/*.npy
 03_multi-target_remaining_useful_life_estimator/models/*.pt
 .DS_Store
+.DS_Store
